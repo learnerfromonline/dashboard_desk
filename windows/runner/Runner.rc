@@ -52,7 +52,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
+IDI_APP_ICON            ICON                    "..\\assets\\sasi_icon.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "dashboard_desk" "\0"
+            VALUE "FileDescription", "All_In_One_ToolKit" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "dashboard_desk" "\0"
+            VALUE "InternalName", "All_In_One_ToolKit" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "dashboard_desk.exe" "\0"
-            VALUE "ProductName", "dashboard_desk" "\0"
+            VALUE "OriginalFilename", "All_In_One_ToolKit.exe" "\0"
+            VALUE "ProductName", "All_In_One_ToolKit" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

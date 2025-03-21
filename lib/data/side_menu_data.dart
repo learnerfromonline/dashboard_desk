@@ -6,9 +6,9 @@ class SideMenuData {
   SideMenuModel(icon:Icons.home, title: "Home"),
   SideMenuModel(icon:Icons.image, title: "Image Compressor"),
   SideMenuModel(icon:Icons.picture_as_pdf, title: "Image to PDF Converter"),
-  SideMenuModel(icon:Icons.video_camera_back_rounded, title: "M3U8 Player"),
+  SideMenuModel(icon:Icons.video_camera_back_rounded, title: "Online Video Player"),
   SideMenuModel(icon:Icons.meeting_room, title: "Online Meetings"),
-  SideMenuModel(icon:Icons.signpost_outlined, title: "LogOut"),
+  SideMenuModel(icon:Icons.calculate, title: "Calculations"),
 
  ];
 }

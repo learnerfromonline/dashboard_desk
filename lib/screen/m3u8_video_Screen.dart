@@ -1,14 +1,16 @@
 import 'dart:developer';
 import 'dart:io';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:screenshot/screenshot.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   const VideoPlayerScreen({Key? key}) : super(key: key);
@@ -23,15 +25,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   ChewieController? chewieController;
   TextEditingController urlTextController = TextEditingController();
   bool _isUrlLoaded = false;
-  bool _loading = false;
+
+  GlobalKey playerScreenshotKey = GlobalKey(); // Key for Video Player Screenshot
 
   Future<void> _initializeFileVideoController(File? file) async {
     if (file != null) {
       fileController = VideoPlayerController.file(file)
         ..initialize().then((_) {
-          setState(() {
-            
-          });
+          setState(() {});
           _initializeChewieController(fileController);
           fileController?.play();
         }).catchError((e) {
@@ -44,9 +45,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (url.isNotEmpty) {
       urlController = VideoPlayerController.network(url)
         ..initialize().then((_) {
-          setState(() {
-            
-          });
+          setState(() {});
           _initializeChewieController(urlController);
           urlController?.play();
         }).catchError((e) {
@@ -65,21 +64,142 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       showControls: true,
     );
   }
+ScreenshotController screenshotController = ScreenshotController();
+  // Future<void> _takeScreenshot() async {
+  //   try {
+  //     // Capture only the video player widget
+  //     RenderRepaintBoundary boundary =
+  //         playerScreenshotKey.currentContext?.findRenderObject() as RenderRepaintBoundary;
+  //     ui.Image image = await boundary.toImage(pixelRatio: ui.window.devicePixelRatio);
+  //     ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  //     Uint8List pngBytes = byteData!.buffer.asUint8List();
 
-  Future<void> _pickVideoFile() async {
-    setState(() {
-      _loading = true;
-    });
+  //     // Let user select the folder to save the screenshot
+  //     String? directoryPath = await FilePicker.platform.getDirectoryPath();
+  //     if (directoryPath != null) {
+  //       String defaultFileName = 'video_player_screenshot_${DateTime.now().millisecondsSinceEpoch}.png';
+  //       File file = File('$directoryPath/$defaultFileName');
+  //       await file.writeAsBytes(pngBytes);
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text("Screenshot saved to $file")),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     log("Screenshot error: $e");
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text("Failed to take screenshot.")),
+  //     );
+  //   }
+  // }
+ Future<void> _takeScreenshot() async {
+    Uint8List? image = await screenshotController.capture();
+    if (image != null) {
+      String? filePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Screenshot',
+        fileName: 'screenshot.png',
+        type: FileType.image,
+        allowedExtensions: ['png'],
+      );
 
-    final pickedFile = await ImagePicker().pickVideo(source: ImageSource.gallery);
+      if (filePath != null) {
+        if (!filePath.toLowerCase().endsWith('.png')) {
+          filePath += '.png';
+        }
 
-    setState(() {
-      if (pickedFile != null) {
-        _initializeFileVideoController(File(pickedFile.path));
-        _isUrlLoaded = true;
+        final file = File(filePath);
+        await file.writeAsBytes(image);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Screenshot saved to $filePath')),
+        );
       }
-      _loading = false;
-    });
+    }
+  }
+
+  @override
+  void dispose() {
+    fileController?.dispose();
+    urlController?.dispose();
+    chewieController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        backgroundColor: const Color.fromARGB(82, 255, 193, 7),
+        title: const Text('Enjoy The Experience', textAlign: TextAlign.center, style: TextStyle(color: Colors.blue)),
+        actions: [
+          IconButton(
+            onPressed: _takeScreenshot,
+            icon: Icon(Icons.camera),
+            tooltip: "Take Screenshot",
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Wrap only the video player with RepaintBoundary
+            RepaintBoundary(
+              key: playerScreenshotKey, // Key for capturing video player screenshot
+              child: GestureDetector(
+                onDoubleTap: () {
+                  setState(() {
+                    chewieController?.toggleFullScreen();
+                  });
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color.fromARGB(105, 75, 227, 67), width: 12),
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  margin: EdgeInsets.all(20),
+                  height: MediaQuery.of(context).size.height / 2,
+                  child: chewieController != null && chewieController!.videoPlayerController.value.isInitialized
+                      ? Screenshot(
+                        controller: screenshotController,
+                        
+                        child: Chewie(
+                            controller: chewieController!,
+                          ),
+                      )
+                      : Center(child: CircularProgressIndicator()),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final pickedFile =
+                          await ImagePicker().pickVideo(source: ImageSource.gallery);
+                      if (pickedFile != null) {
+                        _initializeFileVideoController(File(pickedFile.path));
+                      }
+                    },
+                    icon: Icon(Icons.video_library),
+                    label: Text('Pick Video File', style: TextStyle(color: Colors.black)),
+                  ),
+                  SizedBox(height: 16.0),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _showUrlDialog();
+                    },
+                    icon: Icon(Icons.link),
+                    label: Text('Load Video from URL', style: TextStyle(color: Colors.black)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showUrlDialog() {
@@ -114,107 +234,4 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       },
     );
   }
-
-  Future<void> _downloadVideo(String url) async {
-    final pickedDirectory = await FilePicker.platform.getDirectoryPath();
-
-    if (pickedDirectory != null) {
-      final response = await HttpClient().getUrl(Uri.parse(url));
-      final bytes = await consolidateHttpClientResponseBytes(await response.close());
-      final file = File('$pickedDirectory/downloaded_video.mp3');
-      await file.writeAsBytes(bytes);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Video downloaded to ${file.path}')),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    fileController?.dispose();
-    urlController?.dispose();
-    chewieController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: const Color.fromARGB(82, 255, 193, 7),
-        title: const Text('Enjoy The Experience',textAlign: TextAlign.center,style: TextStyle(color: Colors.blue)),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            GestureDetector(
-              onDoubleTap: () {
-                setState(() {
-                  chewieController?.toggleFullScreen();
-                });
-              },
-              child: Container(
-                decoration: BoxDecoration(border: Border.all(color: const Color.fromARGB(105, 75, 227, 67),width: 12),color: Colors.black,borderRadius: BorderRadius.circular(30)),
-                
-                margin: EdgeInsets.all(20),
-                height: MediaQuery.of(context).size.height / 2,
-                child: chewieController != null && chewieController!.videoPlayerController.value.isInitialized
-                    ? Chewie(
-                        controller: chewieController!,
-                      ).animate(
-                        // onPlay: (controller) => controller.repeat(reverse: true),
-                      ).slide(duration: 500.ms)
-                    : Center(child: CircularProgressIndicator()),
-              ).animate(
-                // onPlay: (controller) => controller.repeat(reverse: true),
-              ).scale(duration: 1500.ms),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _pickVideoFile,
-                    icon: Icon(Icons.video_library),
-                    label: Text('Pick Video File',style: TextStyle(color: Colors.black)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigoAccent,
-                      textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                    ),
-                  ).animate(
-                    onPlay: (controller) => controller.repeat(reverse: true),
-                  ).slide(duration: 500.ms),
-                  SizedBox(height: 16.0),
-                  ElevatedButton.icon(
-                    onPressed: _showUrlDialog,
-                    icon: Icon(Icons.link),
-                    label: Text('Load Video from URL',style: TextStyle(color: Colors.black)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigoAccent,
-                      textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                    ),
-                  ).animate(
-                    onPlay: (controller) => controller.repeat(reverse: true),
-                  ).slide(duration: 500.ms),
-                    SizedBox(height: 16.0),
-                 
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
-
-

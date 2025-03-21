@@ -1,268 +1,249 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:image/image.dart' as img;
-import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
+
+
 
 class ImageCompressorScreen extends StatefulWidget {
-  const ImageCompressorScreen({super.key});
-
   @override
   _ImageCompressorScreenState createState() => _ImageCompressorScreenState();
 }
 
 class _ImageCompressorScreenState extends State<ImageCompressorScreen> {
-  final ImageCompressor _imageCompressor = ImageCompressor();
+  File? _originalImage;
+  Uint8List? _compressedImageBytes;
+  int _compressionQuality = 80;
+  int? _newWidth;
+  int? _newHeight;
+  String _originalImageInfo = '';
+  String _compressedImageInfo = '';
+  bool _isCompressing = false;
 
-  void _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
     if (pickedFile != null) {
       setState(() {
-        _imageCompressor.originalImage = File(pickedFile.path);
+        _originalImage = File(pickedFile.path);
+        _compressedImageBytes = null;
+        _newWidth = null;
+        _newHeight = null;
       });
-      _imageCompressor.compressImage(updateUI);
+      _updateOriginalImageInfo();
     }
   }
 
-  void updateUI() {
-    setState(() {});
+Future<void> _compressImage() async {
+  if (_originalImage == null) return;
+
+  setState(() {
+    _isCompressing = true;
+  });
+
+  try {
+    final image = img.decodeImage(await _originalImage!.readAsBytes());
+    if (image == null) {
+      throw Exception('Failed to decode image.');
+    }
+
+    int width = _newWidth ?? image.width;
+    int height = _newHeight ?? image.height;
+
+    final resizedImage = img.copyResize(image, width: width, height: height);
+    final compressedBytes = img.encodeJpg(resizedImage, quality: _compressionQuality);
+
+    setState(() {
+      _compressedImageBytes = Uint8List.fromList(compressedBytes);
+    });
+    _updateCompressedImageInfo();
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error compressing image: $e')),
+    );
+  } finally {
+    setState(() {
+      _isCompressing = false;
+    });
+  }
+}
+
+ 
+Future<void> _downloadImage() async {
+  if (_compressedImageBytes == null) return;
+
+  try {
+    String? selectedFormat = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: const Text('Select Image Format'),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, 'jpg');
+              },
+              child: const Text('JPG'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, 'png');
+              },
+              child: const Text('PNG'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedFormat == null) return; // User canceled format selection.
+
+    String fileExtension = selectedFormat.toLowerCase();
+    String fileName = 'compressed_image_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+
+    String? savePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Compressed Image',
+      allowedExtensions: [fileExtension],
+      type: FileType.custom,
+      fileName: fileName,
+    );
+
+    if (savePath == null) return; // User canceled save.
+
+    if (!savePath.toLowerCase().endsWith('.$fileExtension')) {
+      savePath += '.$fileExtension'; // Append extension if missing
+    }
+
+    File file = File(savePath);
+
+    if (selectedFormat == 'jpg') {
+      await file.writeAsBytes(_compressedImageBytes!);
+    } else if (selectedFormat == 'png') {
+      final decodedImage = img.decodeImage(_compressedImageBytes!);
+      if (decodedImage == null) {
+        throw Exception('Failed to decode image.');
+      }
+      final pngBytes = img.encodePng(decodedImage);
+      await file.writeAsBytes(pngBytes);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Image downloaded to $savePath')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error downloading image: $e')),
+    );
+  }
+}
+
+
+  Future<void> _shareImage() async {
+    if (_compressedImageBytes == null) return;
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final filePath = path.join(tempDir.path, 'compressed_image.jpg');
+      final file = File(filePath);
+      await file.writeAsBytes(_compressedImageBytes!);
+
+      await Share.shareXFiles([XFile(filePath)], text: 'Compressed Image');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing image: $e')),
+      );
+    }
+  }
+
+  void _updateOriginalImageInfo() async {
+    if (_originalImage == null) return;
+    final file = _originalImage!;
+    final sizeInBytes = await file.length();
+    final decodedImage = img.decodeImage(await file.readAsBytes());
+    final sizeInKB = sizeInBytes / 1024;
+    final name = path.basename(file.path);
+    setState(() {
+      _originalImageInfo = 'Name: $name\nSize: ${sizeInKB.toStringAsFixed(2)} KB\nWidth: ${decodedImage?.width ?? 0} px\nHeight: ${decodedImage?.height ?? 0} px';
+    });
+  }
+
+  void _updateCompressedImageInfo() async {
+    if (_compressedImageBytes == null) return;
+    final sizeInBytes = _compressedImageBytes!.length;
+    final decodedImage = img.decodeImage(_compressedImageBytes!);
+    final sizeInKB = sizeInBytes / 1024;
+    setState(() {
+      _compressedImageInfo = 'Size: ${sizeInKB.toStringAsFixed(2)} KB\nWidth: ${decodedImage?.width ?? 0} px\nHeight: ${decodedImage?.height ?? 0} px';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(68, 158, 158, 158),
-      appBar: AppBar(title: const Text('Image Compressor')),
+      appBar: AppBar(title: Text('Image Compressor')),
       body: SingleChildScrollView(
-        
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Row: Original Image + Sliders
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Original Image Section (Left Side)
-                  Expanded(
-                    child: Column(
-                      children: [
-                        if (_imageCompressor.originalImage != null) ...[
-                          const Text("Original Image"),
-                          Image.file(_imageCompressor.originalImage!, height: 200),
-                          Text("Size: ${_imageCompressor.getFileSize(_imageCompressor.originalImage!)} KB"),
-                          const SizedBox(height: 20),
-                      
-                          
-                        ],
-                        ElevatedButton(onPressed: _pickImage, child: const Text('Choose Image')),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 20),
-          
-                  // Compression Controls (Right Side)
-                  Expanded(
-                    child: Column(
-                      children: [
-                        const Text("Compression Level"),
-                        Slider(
-                          value: _imageCompressor.quality.toDouble(),
-                          min: 10,
-                          max: 100,
-                          divisions: 9,
-                          label: "${_imageCompressor.quality}%",
-                          onChanged: (value) {
-                            setState(() {
-                              _imageCompressor.quality = value.toInt();
-                              _imageCompressor.compressImage(updateUI);
-                            });
-                          },
-                        ),
-                        const Text("Resize Width"),
-                        Slider(
-                          value: _imageCompressor.targetWidth.toDouble(),
-                          min: 100,
-                          max: 2000,
-                          
-                          divisions: 19,
-                          label: "${_imageCompressor.targetWidth}px",
-                          onChanged: (value) {
-                            setState(() {
-                              _imageCompressor.targetWidth = value.toInt();
-                              _imageCompressor.compressImage(updateUI);
-                            });
-                          },
-                        ),
-                        const Text("Resize Height"),
-                        Slider(
-                          value: _imageCompressor.targetHeight.toDouble(),
-                          min: 100,
-                          max: 2000,
-                          divisions: 19,
-                          label: "${_imageCompressor.targetHeight}px",
-                          onChanged: (value) {
-                            setState(() {
-                              _imageCompressor.targetHeight = value.toInt();
-                              _imageCompressor.compressImage(updateUI);
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+              ElevatedButton(onPressed: _pickImage, child: Text('Select Image')),
+              SizedBox(height: 16),
+              if (_originalImage != null) ...[
+                Image.file(_originalImage!),
+                SizedBox(height: 8),
+                Text(_originalImageInfo),
+                SizedBox(height: 16),
+                TextField(
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: 'Width (px)'),
+                  onChanged: (value) => _newWidth = int.tryParse(value),
+                ),
+                TextField(
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: 'Height (px)'),
+                  onChanged: (value) => _newHeight = int.tryParse(value),
+                ),
+                Slider(
+                  value: _compressionQuality.toDouble(),
+                  min: 1,
+                  max: 100,
+                  divisions: 99,
+                  label: 'Quality: $_compressionQuality',
+                  onChanged: (value) {
+                    setState(() {
+                      _compressionQuality = value.round();
+                    });
+                  },
+                ),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _isCompressing ? null : _compressImage,
+                  child: _isCompressing ? CircularProgressIndicator() : Text('Compress Image'),
+                ),
+                SizedBox(height: 16),
+                if (_compressedImageBytes != null) ...[
+                  Image.memory(_compressedImageBytes!),
+                  SizedBox(height:8),
+                  Text(_compressedImageInfo),
+                  SizedBox(height: 16),
+                  ElevatedButton(onPressed: _downloadImage, child: Text('Download')),
+                  SizedBox(height: 20,),
+                  ElevatedButton(onPressed: _shareImage, child: Text('Share')),
                 ],
-              ),
-          
-              const SizedBox(height: 20),
-          
-              // Compressed Image Section (Below the Row)
-              if (_imageCompressor.compressedImage != null) ...[
-                const Text("Compressed Image"),
-                Image.file(
-                  _imageCompressor.compressedImage!,
-                  width: _imageCompressor.targetWidth.toDouble(),
-                  height: _imageCompressor.targetHeight.toDouble(),
-                  fit: BoxFit.cover,
-                ),
-                Text("Size: ${_imageCompressor.getFileSize(_imageCompressor.compressedImage!)} KB"),
-                const SizedBox(height: 10),
-                
-                // Download & Share Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => _imageCompressor.downloadImage(context),
-                      child: const Text('Download Image'),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton(
-                      onPressed: _imageCompressor.shareImage,
-                      child: const Text('Share Image'),
-                    ),
-                  ],
-                ),
+              ]
+              else ...[
+                  Image.asset("assets/choose.gif")
               ],
             ],
           ),
         ),
       ),
     );
-  }
-}
-
-// Image Compressor Class
-class ImageCompressor {
-  File? originalImage;
-  File? compressedImage;
-  int quality = 70;
-  int targetWidth = 800;
-  int targetHeight = 800;
-
-  Future<void> compressImage(VoidCallback updateUI) async {
-  if (originalImage == null) return;
-
-  final bytes = await originalImage!.readAsBytes();
-  img.Image? image = img.decodeImage(bytes);
-
-  if (image == null) return;
-
-  // Calculate aspect ratio-preserving dimensions
-  double aspectRatio = image.width / image.height;
-  int newWidth, newHeight;
-
-  if (image.width > image.height) {
-    newWidth = targetWidth;
-    newHeight = (targetWidth / aspectRatio).round();
-  } else {
-    newHeight = targetHeight;
-    newWidth = (targetHeight * aspectRatio).round();
-  }
-
-  // Resize while maintaining aspect ratio
-  image = img.copyResize(image, width: newWidth, height: newHeight);
-
-  // Compress and save
-  final compressedBytes = img.encodeJpg(image, quality: quality);
-  final dir = await getTemporaryDirectory();
-  final targetPath = '${dir.path}/compressed.jpg';
-
-  File(targetPath).writeAsBytesSync(compressedBytes);
-
-  // Update compressedImage and refresh UI
-  compressedImage = File(targetPath);
-  updateUI();
-}
-
-
-  void shareImage() {
-    if (compressedImage != null) {
-      Share.shareXFiles([XFile(compressedImage!.path)], text: "Here's my compressed image!");
-    }
-  }
-
-Future<void> downloadImage(BuildContext context) async {
-  if (compressedImage != null) {
-    // Show format selection dialog
-    String? selectedExtension = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Select File Format"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text("JPG"),
-                onTap: () => Navigator.pop(context, "jpg"),
-              ),
-              ListTile(
-                title: Text("PNG"),
-                onTap: () => Navigator.pop(context, "png"),
-              ),
-              ListTile(
-                title: Text("SVG"),
-                onTap: () => Navigator.pop(context, "svg"),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (selectedExtension != null) {
-      // Open save file dialog
-      String? filePath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save Image As',
-        fileName: 'compressed_image_${DateTime.now().millisecondsSinceEpoch}.$selectedExtension',
-        type: FileType.custom,
-        allowedExtensions: [selectedExtension],
-      );
-
-      if (filePath != null) {
-        await compressedImage!.copy(filePath);
-
-        // Show confirmation message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Image saved to: $filePath ✅")),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Download canceled ❌")),
-        );
-      }
-    }
-  }
-}
-
-
-  int getFileSize(File file) {
-    return file.existsSync() ? file.lengthSync() ~/ 1024 : 0; // KB
   }
 }

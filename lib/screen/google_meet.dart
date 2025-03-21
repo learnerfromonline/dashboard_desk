@@ -113,16 +113,21 @@ class _GoogleMeetScreenState extends State<GoogleMeetScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      
       appBar: AppBar(
+        backgroundColor: Colors.black26,
+        centerTitle: true,
         title: Text('Online Meet Player'),
         actions: [
           IconButton(
             icon: Icon(Icons.camera),
             onPressed: _takeScreenshot,
           ),
+          
         ],
       ),
       body: Column(
+        
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),

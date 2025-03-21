@@ -1,5 +1,3 @@
-
-
 import 'package:dashboard_desk/data/side_menu_data.dart';
 import 'package:flutter/material.dart';
 
@@ -27,10 +25,11 @@ class _SidemenuwidgetState extends State<Sidemenuwidget> {
     final data = SideMenuData();
 
     return Container(
-      color: Colors.blueGrey,
-      padding: EdgeInsets.all(30),
+      color: Colors.blueGrey, // Sidebar background color
+      padding: const EdgeInsets.all(30),
       child: Column(
         children: [
+          // Menu/Burger Icon
           InkWell(
             onTap: widget.onBurgerIconPressed,
             child: Icon(
@@ -39,6 +38,9 @@ class _SidemenuwidgetState extends State<Sidemenuwidget> {
               size: 30,
             ),
           ),
+          const SizedBox(height: 20), // Spacing below the menu icon
+
+          // Menu Items List
           Expanded(
             child: ListView.builder(
               itemCount: data.menu.length,
@@ -55,28 +57,34 @@ class _SidemenuwidgetState extends State<Sidemenuwidget> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isSelected ? Colors.orange : Colors.cyanAccent,
-        borderRadius: BorderRadius.circular(20),
+        color: isSelected ? Colors.white : Colors.black, // Selected: White, Not selected: Cyan
+        borderRadius: BorderRadius.circular(20), // Rounded corners for menu items
       ),
-      margin: EdgeInsets.only(left: 2, right: 12, top: 12),
+      margin: const EdgeInsets.only(left: 2, right: 12, top: 12), // Spacing for menu items
       child: InkWell(
         onTap: () {
-          widget.onItemSelected(index);
+          widget.onItemSelected(index); // Trigger item selection
         },
         child: Row(
           children: [
             Padding(
-              padding: const EdgeInsets.only(right: 2, top: 5, bottom: 5, left: 8),
+              padding: const EdgeInsets.only( top: 8, bottom: 8, left: 19),
+              
               child: Icon(
                 data.menu[index].icon,
-                color: isSelected ? const Color.fromARGB(255, 13, 16, 13) : Colors.limeAccent,
+                color: isSelected ? Colors.black : Colors.white, // Selected: Black icon
+                size: 24,
               ),
             ),
             if (widget.isMenuExpanded) ...[
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Text(
                 data.menu[index].title,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.black : Colors.white, // Selected: Black text
+                  fontSize: 16,
+                ),
               ),
             ],
           ],

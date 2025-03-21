@@ -1,8 +1,10 @@
 
+import 'package:dashboard_desk/screen/Calculators/calc_home.dart';
 import 'package:dashboard_desk/screen/google_meet.dart';
 import 'package:dashboard_desk/screen/home_screen.dart';
 import 'package:dashboard_desk/screen/image_to_pdf.dart';
 import 'package:dashboard_desk/screen/m3u8_video_Screen.dart';
+
 import 'package:dashboard_desk/screen/video_to_audio.dart';
 import 'package:flutter/material.dart';
 import 'package:dashboard_desk/widgets/sidemenuwidget.dart';
@@ -22,11 +24,14 @@ class _UiScreenState extends State<UiScreen> {
   // Define available screens
   final List<Widget> screens = [
     HomeScreen(),
+    // PdfImageExtractor(),
+    
     ImageCompressorScreen(),
     ImageToPdf(),
     VideoPlayerScreen(),
     GoogleMeetScreen(),
-    Container(color: Colors.yellow), // Placeholder for another screen
+    CartoonCalculatorHome(),
+    // Container(color: Colors.yellow), // Placeholder for another screen
   ];
 
   void updateSelectedIndex(int index) {

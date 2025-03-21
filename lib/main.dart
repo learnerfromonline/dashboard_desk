@@ -1,3 +1,4 @@
+import 'package:dashboard_desk/screen/flashScreen.dart';
 import 'package:dashboard_desk/screen/ui_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -36,7 +37,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: UiScreen(),
+      home: SplashScreen(),
     );
   }
 }
