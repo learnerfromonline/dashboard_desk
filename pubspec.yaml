@@ -65,6 +65,9 @@ dependencies:
   math_expressions: ^2.6.0
   fl_chart: ^0.70.2
   image_gallery_saver: ^2.0.3
+  pdf_compressor: ^0.2.0
+  flutter_pdfview: ^1.4.0
+  flame: ^1.26.1
 
 dev_dependencies:
   flutter_test:

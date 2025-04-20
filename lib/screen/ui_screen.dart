@@ -1,9 +1,12 @@
 
 import 'package:dashboard_desk/screen/Calculators/calc_home.dart';
+// import 'package:dashboard_desk/screen/floppy_bird.dart';
+import 'package:dashboard_desk/screen/game.dart';
 import 'package:dashboard_desk/screen/google_meet.dart';
 import 'package:dashboard_desk/screen/home_screen.dart';
 import 'package:dashboard_desk/screen/image_to_pdf.dart';
 import 'package:dashboard_desk/screen/m3u8_video_Screen.dart';
+
 
 import 'package:dashboard_desk/screen/video_to_audio.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +34,9 @@ class _UiScreenState extends State<UiScreen> {
     VideoPlayerScreen(),
     GoogleMeetScreen(),
     CartoonCalculatorHome(),
+    // PDFCompressorHome()
+    SnakeGameApp(),
+    // FloppyBird()
     // Container(color: Colors.yellow), // Placeholder for another screen
   ];
 
